@@ -1,43 +1,63 @@
-from fastapi import APIRouter, UploadFile, File
-import os
+
+from io import BytesIO
+from pathlib import Path
 import uuid
 
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
 
-router = APIRouter(
-    prefix="/api",
-    tags=["Upload"]
-)
+router = APIRouter(prefix="/api", tags=["Upload"])
 
-
-UPLOAD_DIR = "storage/uploads"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+UPLOAD_DIR = BACKEND_DIR / "storage" / "uploads"
+MAX_UPLOAD_SIZE = 15 * 1024 * 1024
+ALLOWED_FORMATS = {
+    "JPEG": ".jpg",
+    "PNG": ".png",
+    "WEBP": ".webp",
+}
 
 
 @router.post("/upload")
-async def upload_image(
-    file: UploadFile = File(...)
-):
+async def upload_image(file: UploadFile = File(...)):
+    content = await file.read(MAX_UPLOAD_SIZE + 1)
+    await file.close()
 
-    file_id = str(uuid.uuid4())
+    if not content:
+        raise HTTPException(status_code=400, detail="File kosong.")
 
-    filename = f"{file_id}_{file.filename}"
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Ukuran gambar maksimal 15 MB.",
+        )
 
-    path = os.path.join(
-        UPLOAD_DIR,
-        filename
-    )
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image_format = image.format
+            image.verify()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        raise HTTPException(
+            status_code=400,
+            detail="File bukan gambar yang valid.",
+        )
 
-    os.makedirs(
-        UPLOAD_DIR,
-        exist_ok=True
-    )
+    if image_format not in ALLOWED_FORMATS:
+        raise HTTPException(
+            status_code=415,
+            detail="Format yang didukung: JPEG, PNG, dan WebP.",
+        )
 
-    content = await file.read()
+    image_id = uuid.uuid4().hex
+    filename = f"{image_id}{ALLOWED_FORMATS[image_format]}"
 
-    with open(path, "wb") as f:
-        f.write(content)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = UPLOAD_DIR / filename
+    file_path.write_bytes(content)
 
     return {
-        "id": file_id,
+        "id": image_id,
         "filename": filename,
-        "message": "Upload success"
+        "size": len(content),
+        "message": "Upload success",
     }
