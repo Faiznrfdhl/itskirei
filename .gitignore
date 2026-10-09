@@ -1,0 +1,22 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# AI model weights
+backend/models/*.pth
+
+# Temporary uploaded and generated images
+backend/storage/uploads/*
+backend/storage/outputs/*
+
+# Keep storage directories in Git
+!backend/storage/uploads/.gitkeep
+!backend/storage/outputs/.gitkeep
