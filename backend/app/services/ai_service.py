@@ -45,13 +45,13 @@ def _get_upsampler() -> RealESRGANer:
                     scale=4,
                     model_path=str(MODEL_PATH),
                     model=model,
-                    tile=512,
+                    tile=256,
                     tile_pad=10,
                     pre_pad=0,
                     half=(DEVICE.type == "cuda"),
                     device=DEVICE,
                 )
-                print("[AI Service] Model berhasil dimuat!")
+                print("[AI Service] Model berhasil dimuat!", flush=True)
 
     return _upsampler
 
@@ -65,23 +65,38 @@ def upscale_with_ai(input_path: str, scale: int) -> str:
     if not input_file.is_file():
         raise FileNotFoundError(f"Gambar input tidak ditemukan: {input_file}")
 
-    img = cv2.imread(str(input_file), cv2.IMREAD_COLOR)
+    img = cv2.imread(str(input_file), cv2.IMREAD_UNCHANGED)
     if img is None:
         raise ValueError("File gambar tidak dapat dibaca.")
 
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
     h, w = img.shape[:2]
-    print(f"[AI Service] Memproses upscale {scale}x untuk '{input_file.name}' (Resolusi asli: {w}x{h})...")
+    print(f"[AI Service] Memproses upscale {scale}x untuk '{input_file.name}' (Resolusi asli: {w}x{h})...", flush=True)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / f"{uuid.uuid4().hex}_x{scale}.png"
 
-    with _model_lock:
-        upsampler = _get_upsampler()
-        output, _ = upsampler.enhance(img, outscale=scale)
+    print("[1] Ambil model", flush=True)
+    upsampler = _get_upsampler()
 
-    if not cv2.imwrite(str(output_path), output):
+    print("[2] Mulai enhance", flush=True)
+    output, _ = upsampler.enhance(
+        img,
+        outscale=scale
+    )
+
+    print("[3] Enhance selesai", flush=True)
+    saved = cv2.imwrite(
+        str(output_path),
+        output
+    )
+
+    print("[4] cv2.imwrite:", saved, flush=True)
+    if not saved:
         raise RuntimeError("Gagal menyimpan hasil upscale.")
 
     out_h, out_w = output.shape[:2]
-    print(f"[AI Service] Selesai! Resolusi baru: {out_w}x{out_h}. Disimpan di: {output_path.name}")
+    print(f"[5] Return file (Resolusi baru: {out_w}x{out_h}): {output_path.name}", flush=True)
     return str(output_path)

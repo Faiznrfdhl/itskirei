@@ -10,8 +10,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 UPLOAD_DIR = BACKEND_DIR / "storage" / "uploads"
 OUTPUT_DIR = BACKEND_DIR / "storage" / "outputs"
 
-FILE_TTL_SECONDS = 5 * 60
-CLEANUP_INTERVAL_SECONDS = 30
+FILE_TTL_SECONDS = 60 * 60  # 1 jam
+CLEANUP_INTERVAL_SECONDS = 60
 
 
 def cleanup_expired_files() -> int:

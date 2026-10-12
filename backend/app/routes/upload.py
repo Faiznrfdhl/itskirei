@@ -4,6 +4,7 @@ from pathlib import Path
 import uuid
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from PIL import Image, UnidentifiedImageError
 
 router = APIRouter(prefix="/api", tags=["Upload"])
@@ -58,6 +59,27 @@ async def upload_image(file: UploadFile = File(...)):
     return {
         "id": image_id,
         "filename": filename,
+        "url": f"/api/upload/{filename}",
         "size": len(content),
         "message": "Upload success",
     }
+
+
+@router.get("/upload/{filename}")
+def get_uploaded_image(filename: str):
+    file_path = (UPLOAD_DIR / filename).resolve()
+    if file_path.parent != UPLOAD_DIR.resolve() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Gambar tidak ditemukan.")
+
+    ext = file_path.suffix.lower()
+    media_type = "image/jpeg"
+    if ext == ".png":
+        media_type = "image/png"
+    elif ext == ".webp":
+        media_type = "image/webp"
+
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
